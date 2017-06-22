@@ -350,7 +350,7 @@ namespace Microsoft.AspNetCore.Sockets.Client.Tests
 
             var connection = new HttpConnection(new Uri("http://fakeuri.org/"), new TestTransportFactory(mockTransport.Object), loggerFactory: null, httpMessageHandler: mockHttpHandler.Object);
             var receivedInvoked = false;
-            connection.Received += (m) => receivedInvoked = true;
+            connection.Received += (m) => { receivedInvoked = true; return Task.CompletedTask; };
 
             await connection.StartAsync();
             await connection.DisposeAsync();
@@ -389,7 +389,7 @@ namespace Microsoft.AspNetCore.Sockets.Client.Tests
 
             var closedTcs = new TaskCompletionSource<object>();
             var allowDisposeTcs = new TaskCompletionSource<object>();
-            int receivedInvocationCount = 0;
+            var receivedInvocationCount = 0;
 
             var connection = new HttpConnection(new Uri("http://fakeuri.org/"), new TestTransportFactory(mockTransport.Object), loggerFactory: null, httpMessageHandler: mockHttpHandler.Object);
             connection.Received +=
@@ -406,9 +406,9 @@ namespace Microsoft.AspNetCore.Sockets.Client.Tests
             await connection.StartAsync();
             channel.Output.TryWrite(Array.Empty<byte>());
             channel.Output.TryWrite(Array.Empty<byte>());
-            await allowDisposeTcs.Task.OrTimeout();
+
+            Assert.False(channel.Input.TryRead(out var message));
             await connection.DisposeAsync();
-            Assert.Equal(2, receivedInvocationCount);
             // if the events were running on the main loop they would deadlock
             await closedTcs.Task.OrTimeout();
         }
@@ -592,7 +592,7 @@ namespace Microsoft.AspNetCore.Sockets.Client.Tests
             try
             {
                 var receiveTcs = new TaskCompletionSource<string>();
-                connection.Received += (data) => receiveTcs.TrySetResult(Encoding.UTF8.GetString(data));
+                connection.Received += (data) => { receiveTcs.TrySetResult(Encoding.UTF8.GetString(data)); return Task.CompletedTask; };
                 connection.Closed += e =>
                     {
                         if (e != null)
