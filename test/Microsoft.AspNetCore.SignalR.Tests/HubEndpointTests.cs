@@ -608,9 +608,9 @@ namespace Microsoft.AspNetCore.SignalR.Tests
         {
             var serviceProvider = CreateServiceProvider(services =>
             {
-                services.AddAuthorization(o =>
+                services.AddAuthorization(options =>
                 {
-                    o.AddPolicy("test", policy =>
+                    options.AddPolicy("test", policy =>
                     {
                         policy.RequireClaim(ClaimTypes.NameIdentifier);
                         policy.AddAuthenticationSchemes("Default");
@@ -641,9 +641,9 @@ namespace Microsoft.AspNetCore.SignalR.Tests
         {
             var serviceProvider = CreateServiceProvider(services =>
             {
-                services.AddAuthorization(o =>
+                services.AddAuthorization(options =>
                 {
-                    o.AddPolicy("test", policy =>
+                    options.AddPolicy("test", policy =>
                     {
                         policy.RequireClaim(ClaimTypes.NameIdentifier);
                         policy.AddAuthenticationSchemes("Default");
