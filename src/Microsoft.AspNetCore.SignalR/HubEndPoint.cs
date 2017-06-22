@@ -253,7 +253,7 @@ namespace Microsoft.AspNetCore.SignalR
 
             using (var scope = _serviceScopeFactory.CreateScope())
             {
-                if (!await IsHubMethodAuthorized(connection.User, descriptor.Policies))
+                if (!await IsHubMethodAuthorized(scope.ServiceProvider, connection.User, descriptor.Policies))
                 {
                     _logger.LogDebug("Failed to invoke {hubMethod} because user is unauthorized", invocationMessage.Target);
                     await SendMessageAsync(connection, protocol, CompletionMessage.WithError(invocationMessage.InvocationId, $"Failed to invoke '{invocationMessage.Target}' because user is unauthorized"));
@@ -414,21 +414,18 @@ namespace Microsoft.AspNetCore.SignalR
             }
         }
 
-        private async Task<bool> IsHubMethodAuthorized(ClaimsPrincipal principal, IEnumerable<IAuthorizeData> policies)
+        private async Task<bool> IsHubMethodAuthorized(IServiceProvider provider, ClaimsPrincipal principal, IEnumerable<IAuthorizeData> policies)
         {
             if (policies != null)
             {
-                using (var scope = _serviceScopeFactory.CreateScope())
-                {
-                    var authService = scope.ServiceProvider.GetRequiredService<IAuthorizationService>();
-                    var policyProvider = scope.ServiceProvider.GetRequiredService<IAuthorizationPolicyProvider>();
+                var authService = provider.GetRequiredService<IAuthorizationService>();
+                var policyProvider = provider.GetRequiredService<IAuthorizationPolicyProvider>();
 
-                    var authorizePolicy = await AuthorizationPolicy.CombineAsync(policyProvider, policies);
-                    if (authorizePolicy != null)
-                    {
-                        var res = await authService.AuthorizeAsync(principal, authorizePolicy);
-                        return res.Succeeded;
-                    }
+                var authorizePolicy = await AuthorizationPolicy.CombineAsync(policyProvider, policies);
+                if (authorizePolicy != null)
+                {
+                    var res = await authService.AuthorizeAsync(principal, authorizePolicy);
+                    return res.Succeeded;
                 }
             }
 
