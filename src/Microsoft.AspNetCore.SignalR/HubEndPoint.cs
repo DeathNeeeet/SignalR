@@ -226,15 +226,7 @@ namespace Microsoft.AspNetCore.SignalR
             }
             else
             {
-                if (await IsHubMethodAuthorized(connection.User, descriptor.Policies))
-                {
-                    await Invoke(descriptor, connection, protocol, invocationMessage);
-                }
-                else
-                {
-                    _logger.LogDebug("Failed to invoke {hubMethod} because user is unauthorized", invocationMessage.Target);
-                    await SendMessageAsync(connection, protocol, CompletionMessage.WithError(invocationMessage.InvocationId, $"Failed to invoke '{invocationMessage.Target}' because user is unauthorized"));
-                }
+                await Invoke(descriptor, connection, protocol, invocationMessage);
             }
         }
 
@@ -261,6 +253,13 @@ namespace Microsoft.AspNetCore.SignalR
 
             using (var scope = _serviceScopeFactory.CreateScope())
             {
+                if (!await IsHubMethodAuthorized(connection.User, descriptor.Policies))
+                {
+                    _logger.LogDebug("Failed to invoke {hubMethod} because user is unauthorized", invocationMessage.Target);
+                    await SendMessageAsync(connection, protocol, CompletionMessage.WithError(invocationMessage.InvocationId, $"Failed to invoke '{invocationMessage.Target}' because user is unauthorized"));
+                    return;
+                }
+
                 var hubActivator = scope.ServiceProvider.GetRequiredService<IHubActivator<THub, TClient>>();
                 var hub = hubActivator.Create();
 
