@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Security.Claims;
@@ -416,20 +417,22 @@ namespace Microsoft.AspNetCore.SignalR
 
         private async Task<bool> IsHubMethodAuthorized(IServiceProvider provider, ClaimsPrincipal principal, IEnumerable<IAuthorizeData> policies)
         {
-            if (policies != null)
+            // If there are no policies we don't need to run auth
+            if (!policies.Any())
             {
-                var authService = provider.GetRequiredService<IAuthorizationService>();
-                var policyProvider = provider.GetRequiredService<IAuthorizationPolicyProvider>();
-
-                var authorizePolicy = await AuthorizationPolicy.CombineAsync(policyProvider, policies);
-                if (authorizePolicy != null)
-                {
-                    var res = await authService.AuthorizeAsync(principal, authorizePolicy);
-                    return res.Succeeded;
-                }
+                return true;
             }
 
-            return true;
+            var authService = provider.GetRequiredService<IAuthorizationService>();
+            var policyProvider = provider.GetRequiredService<IAuthorizationPolicyProvider>();
+
+            var authorizePolicy = await AuthorizationPolicy.CombineAsync(policyProvider, policies);
+            // AuthorizationPolicy.CombineAsync only returns null if there are no policies and we check that above
+            Debug.Assert(authorizePolicy != null);
+
+            var authorizationResult = await authService.AuthorizeAsync(principal, authorizePolicy);
+            // Only check authorization success, challenge or forbid wouldn't make sense from a hub method invocation
+            return authorizationResult.Succeeded;
         }
 
         Type IInvocationBinder.GetReturnType(string invocationId)
@@ -450,11 +453,11 @@ namespace Microsoft.AspNetCore.SignalR
         // REVIEW: We can decide to move this out of here if we want pluggable hub discovery
         private class HubMethodDescriptor
         {
-            public HubMethodDescriptor(ObjectMethodExecutor methodExecutor, IEnumerable<IAuthorizeData> policy)
+            public HubMethodDescriptor(ObjectMethodExecutor methodExecutor, IEnumerable<IAuthorizeData> policies)
             {
                 MethodExecutor = methodExecutor;
                 ParameterTypes = methodExecutor.MethodParameters.Select(p => p.ParameterType).ToArray();
-                Policies = policy;
+                Policies = policies;
             }
 
             public ObjectMethodExecutor MethodExecutor { get; }
